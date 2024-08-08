@@ -9,8 +9,10 @@ import threading
 import argparse
 import scripts.tb_gen
 from scripts.simulate import compile, run_simulation
+import scripts.counter
 
-FOLDER = os.path.dirname(os.path.realpath(__file__)) + "/data"
+# FOLDER = os.path.dirname(os.path.realpath(__file__)) + "/data"
+FOLDER = "/media/vincent/Z/dataset"
 MAX_PROCESSES = os.cpu_count() - 2 if os.cpu_count() > 2 else 1
 MAX_PORTS = 6
 
@@ -225,18 +227,27 @@ def main():
     parser.add_argument("--num_processes", help="Number of processes to use for data gathering", default=MAX_PROCESSES)
     parser.add_argument("--max_ports", help="Only use modules with less than or equal to this number of ports", default=MAX_PORTS)
     parser.add_argument("--max_sim_time", help="Maximum simulation time for testbenches in ns", default=100)
+    parser.add_argument("count", help="Gives details on the total amount of data available in the dataset", nargs="?", default=False)
 
     args = parser.parse_args()
     
     FOLDER = args.folder
     start_at = int(args.start_at)
     print(f"Folder: {FOLDER}")
-    print(f"Start at: {start_at}")
     MAX_PROCESSES = int(args.num_processes)
-    print(f"Number of processes: {MAX_PROCESSES}")
     MAX_PORTS = int(args.max_ports)
-    print(f"Max ports: {MAX_PORTS}")
+    
     max_sim_time = int(args.max_sim_time)
+
+    if args.count:
+        print("Counting...")
+        scripts.counter.count(FOLDER)
+        return
+
+    print(f"Start at: {start_at}")
+    print(f"Number of processes: {MAX_PROCESSES}")
+    print(f"Max ports: {MAX_PORTS}")
+    
 
     if start_at == 0:
         print("Creating dataset")
