@@ -1,5 +1,4 @@
 import os
-import threading
 from scripts import meta_data
 import subprocess
 from shutil import which
