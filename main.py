@@ -8,7 +8,7 @@ import re
 import threading
 import argparse
 import scripts.tb_gen
-from scripts.simulate import xvlog, xelab, xsim
+from scripts.simulate import compile, run_simulation
 
 FOLDER = os.path.dirname(os.path.realpath(__file__)) + "/data"
 MAX_PROCESSES = os.cpu_count() - 2 if os.cpu_count() > 2 else 1
@@ -76,7 +76,8 @@ def generate_testbench(folder):
     TB_GEN_SEMAPHORE.release()
     if not success:
         if delete:
-            shutil.rmtree(folder)
+            pass
+            # shutil.rmtree(folder)
         return False
     return True
 
@@ -87,25 +88,20 @@ def perform_simulation(folder):
     Used by the concurrent.futures.ThreadPoolExecutor for multithreading
     '''
     SIM_SEMAPHORE.acquire()
-    success, delete = xvlog(folder)
+    success, delete = compile(folder)
     SIM_SEMAPHORE.release()
     if not success:
         if delete:
-            shutil.rmtree(folder)
+            pass
+            # shutil.rmtree(folder)
         return False
     SIM_SEMAPHORE.acquire()
-    success, delete = xelab(folder)
+    success, delete = run_simulation(folder)
     SIM_SEMAPHORE.release()
     if not success:
         if delete:
-            shutil.rmtree(folder)
-        return False
-    SIM_SEMAPHORE.acquire()
-    success, delete = xsim(folder)
-    SIM_SEMAPHORE.release()
-    if not success:
-        if delete:
-            shutil.rmtree(folder)
+            pass
+            # shutil.rmtree(folder)
         return False
     return True
 
@@ -152,9 +148,6 @@ def gather_verilog_data():
 
 def generate_testbenches():
     total = 0
-    # for folder in os.listdir(FOLDER):
-    #     total += 1
-    # print(f"Generating testbenches for {total} modules using {MAX_PROCESSES} processes")
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=2*MAX_PROCESSES)
     futures = []
     i = 0
@@ -191,12 +184,11 @@ def perform_simulations():
     for folder in os.listdir(FOLDER):
         total += 1
     print(f"Performing simulations on {total} modules using {MAX_PROCESSES} processes")
-    tb_gen_semaphore = multiprocessing.Semaphore(MAX_PROCESSES-1)
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=2*MAX_PROCESSES, initargs=(tb_gen_semaphore,))
     futures = []
     i = 0
     for folder in os.listdir(FOLDER):
-        futures.append(executor.submit(xvlog, f"{FOLDER}/{folder}"))
+        futures.append(executor.submit(perform_simulation, f"{FOLDER}/{folder}"))
         i += 1
         if i % 1000 == 0:
             print(f"Submitted {i} simulations to the pool", end="\r")
@@ -211,34 +203,6 @@ def perform_simulations():
             print(f"Completed {i}/{total} simulations, success rate: {success}/{i}", end="\r")
     print(f"Completed {i}/{total} simulations, success rate: {success}/{i}")
     print("Simulations completed")
-
-    futures = []
-    i = 0
-    for folder in os.listdir(FOLDER):
-        futures.append(executor.submit(xelab, f"{FOLDER}/{folder}"))
-        i += 1
-        if i % 1000 == 0:
-            print(f"Submitted {i} simulations to the pool", end="\r")
-    print("")
-    success = 0
-    i = 0
-    for future in concurrent.futures.as_completed(futures):
-        if future.result():
-            success += 1
-        i += 1
-        if i % 1000 == 0:
-            print(f"Completed {i}/{total} simulations, success rate: {success}/{i}", end="\r")
-    print(f"Completed {i}/{total} simulations, success rate: {success}/{i}")
-    print("Simulations completed")
-
-    futures = []
-    i = 0
-    for folder in os.listdir(FOLDER):
-        futures.append(executor.submit(xsim, f"{FOLDER}/{folder}"))
-        i += 1
-        if i % 1000 == 0:
-            print(f"Submitted {i} simulations to the pool", end="\r")
-    print("")
 
 
 def main():
@@ -284,6 +248,8 @@ def main():
         generate_testbenches()
         start_at = 2
     if start_at == 2:
+        print("Performing simulations")
+        perform_simulations()
         start_at = 3
     if start_at == 3:
         pass
