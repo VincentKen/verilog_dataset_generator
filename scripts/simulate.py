@@ -3,43 +3,36 @@ from scripts import meta_data
 import subprocess
 from shutil import which
 
-def xvlog(folder):
+def compile(folder):
     '''
-    Run xvlog on the testbench in the folder to create a snapshot
+    Compile testbench and module together using Icarus Verilog
     '''
-    subprocess_args = ["xvlog", f"{folder}/tb.v", f"{folder}/module.v"]
+    subprocess_args = ["iverilog", f"{folder}/module.v", f"{folder}/tb.v", "-o", "iverilog_out"]
+    # the testbench generator does not add a timescale to the testbench which causes the wrong time in the simulation output
+    # it also does not add code for creating the vcd file
+    with open(os.path.join(folder, "tb.v"), "r+") as f:
+        content = f.read()
+        f.seek(0, 0)
+        # content always ends with `endmodule` so we can just add the code before that
+        content = content.replace("endmodule", "initial begin\n$dumpfile(\"dump.vcd\");\n$dumpvars(0, testbench);\nend\nendmodule")
+        f.write("`timescale 1ns/1ns\n" + content)
+
     try:
-        proc = subprocess.run(subprocess_args, shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(subprocess_args, shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception as e:
-        print(subprocess_args)
-        print(f"Error: {e}")
-        with open(os.path.join(folder, "xvlog_err.txt"), "w") as f:
+        with open(os.path.join(folder, "iverilog_err.txt"), "w") as f:
             f.write(str(e))
         return False, False
-    return True, False
+        
 
-
-def xelab(folder):
-    subprocess_args = ["xelab", "-debug", "typical", "-top", "testbench", "-snapshot", "snapshot"]
+def run_simulation(folder):
+    '''
+    Run the compiled simulation
+    '''
+    subprocess_args = ["vvp", "iverilog_out"]
     try:
-        proc = subprocess.run(subprocess_args, shell=True, check=True, cwd=folder, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(subprocess_args, shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception as e:
-        print(subprocess_args)
-        print(f"Error: {e}")
-        with open(os.path.join(folder, "xelab_err.txt"), "w") as f:
+        with open(os.path.join(folder, "vvp_err.txt"), "w") as f:
             f.write(str(e))
         return False, False
-    return True, False
-
-
-def xsim(folder):
-    subprocess_args = ["xsim", "snapshot", "-tclbatch", "utils/xsim_cfg.tcl"]
-    try:
-        proc = subprocess.run(subprocess_args, shell=True, check=True, cwd=folder, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except Exception as e:
-        print(subprocess_args)
-        print(f"Error: {e}")
-        with open(os.path.join(folder, "xsim_err.txt"), "w") as f:
-            f.write(str(e))
-        return False, False
-    
