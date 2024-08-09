@@ -33,8 +33,13 @@ DataGathering/
 ## Setup
 The file `requirements.txt` lists the python dependencies for these scripts, they can be installed with `pip install -r requirements.txt`. There is a chance the installation of `hdlparse` might produce an error.
 In that case, first run `pip install setuptools==57.5.0`. This error occurs because `hdlparse` uses `use_2to3`, which is no longer available in newer versions of `setuptools`.  
-  
-This program requires the vlogTBGen from [EDAUtils](https://www.edautils.com/VlogTBGen.html). Make sure to either use `source setup_env.sh` or to run the `setup_env.bat` whenever you use the data gathering script
+
+The following tools are required for this program:    
+ - **vlogTBGen** from [EDAUtils](https://www.edautils.com/VlogTBGen.html) to generate testbenches. Make sure to either use `source setup_env.sh` or to run the `setup_env.bat` whenever you use the data gathering script.  
+ - **iverilog** for the compilation of the modules alongside their testbenches, and **vvp** for the simulation. The **vvp** command should be included with iverilog.  
+ - **vcd2wavedrom** from [Toroid-io](https://github.com/Toroid-io/vcd2wavedrom) is used to turn the results of the simulation into wavedrom json formats.
+ - **wavedrom-cli** from [wavedrom](https://github.com/wavedrom/cli) is used to create the images from the wavedrom jsons.
+
 
 <!-- 1. Run the `data_collection.py` script to collect the required data from various sources.
 2. Use the `data_preprocessing.py` script to preprocess the collected data, ensuring it is in the desired format for training the multi-modal LLM.
