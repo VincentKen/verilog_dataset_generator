@@ -7,7 +7,7 @@ def compile(folder):
     '''
     Compile testbench and module together using Icarus Verilog
     '''
-    subprocess_args = ["iverilog", f"{folder}/module.v", f"{folder}/tb.v", "-o", "iverilog_out"]
+    subprocess_args = ["iverilog", f"{folder}/module.v", f"{folder}/tb.v", "-o", f"{folder}/iverilog_out"]
     # the testbench generator does not add a timescale to the testbench which causes the wrong time in the simulation output
     # it also does not add code for creating the vcd file
     with open(os.path.join(folder, "tb.v"), "r+") as f:
@@ -18,12 +18,14 @@ def compile(folder):
         f.write("`timescale 1ns/1ns\n" + content)
 
     try:
-        subprocess.run(subprocess_args, shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        with open(os.path.join(folder, "iverilog_stderr"), "w") as f:
+            with open(os.path.join(folder, "iverilog_stdout"), "w") as g:
+                subprocess.run(subprocess_args, check=True, stdout=g, stderr=f)
     except Exception as e:
         with open(os.path.join(folder, "iverilog_err.txt"), "w") as f:
             f.write(str(e))
         return False, False
-        
+    return True, False
 
 def run_simulation(folder):
     '''
@@ -31,8 +33,9 @@ def run_simulation(folder):
     '''
     subprocess_args = ["vvp", "iverilog_out"]
     try:
-        subprocess.run(subprocess_args, shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(subprocess_args, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception as e:
         with open(os.path.join(folder, "vvp_err.txt"), "w") as f:
             f.write(str(e))
         return False, False
+    return True, False
