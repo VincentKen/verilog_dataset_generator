@@ -3,6 +3,8 @@ from scripts import meta_data
 import subprocess
 from shutil import which
 
+DEBUG = False
+
 def compile(folder):
     '''
     Compile testbench and module together using Icarus Verilog
@@ -18,14 +20,18 @@ def compile(folder):
         f.write("`timescale 1ns/1ns\n" + content)
 
     try:
-        with open(os.path.join(folder, "iverilog_stderr"), "w") as f:
-            with open(os.path.join(folder, "iverilog_stdout"), "w") as g:
-                subprocess.run(subprocess_args, check=True, stdout=g, stderr=f)
+        if DEBUG:
+            with open(os.path.join(folder, "iverilog_stderr"), "w") as err:
+                with open(os.path.join(folder, "iverilog_stdout"), "w") as out:
+                    subprocess.run(subprocess_args, check=True, stdout=out, stderr=err)
+        else:
+            subprocess.run(subprocess_args, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception as e:
-        with open(os.path.join(folder, "iverilog_err.txt"), "w") as f:
-            f.write(str(e))
-        return False, False
-    return True, False
+        if DEBUG:
+            with open(os.path.join(folder, "iverilog_err.txt"), "w") as f:
+                f.write(str(e))
+        return False
+    return True
 
 def run_simulation(folder):
     '''
@@ -33,9 +39,15 @@ def run_simulation(folder):
     '''
     subprocess_args = ["vvp", "iverilog_out"]
     try:
-        subprocess.run(subprocess_args, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if DEBUG:
+            with open(os.path.join(folder, "vvp_stderr"), "w") as err:
+                with open(os.path.join(folder, "vvp_stdout"), "w") as out:
+                    subprocess.run(subprocess_args, check=True, stdout=out, stderr=err)
+        else:
+            subprocess.run(subprocess_args, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception as e:
-        with open(os.path.join(folder, "vvp_err.txt"), "w") as f:
-            f.write(str(e))
-        return False, False
-    return True, False
+        if DEBUG:
+            with open(os.path.join(folder, "vvp_err.txt"), "w") as f:
+                f.write(str(e))
+        return False
+    return True

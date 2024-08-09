@@ -7,6 +7,8 @@ import shutil
 import re
 import threading
 import argparse
+import scripts.meta_data
+import scripts.simulate
 import scripts.tb_gen
 from scripts.simulate import compile, run_simulation
 import scripts.counter
@@ -18,6 +20,8 @@ MAX_PROCESSES = os.cpu_count() - 2 if os.cpu_count() > 2 else 1
 MAX_PORTS = 6
 
 DATASETS = ["wangxinze/Verilog_data", "shailja/Verilog_Github"]
+
+DEBUG = False
 
 # used to limit access to the tb_gen script which uses subprocess to run gentbvlog
 # too many processes can cause the system to hang
@@ -75,12 +79,12 @@ def generate_testbench(folder):
     Used by the concurrent.futures.ThreadPoolExecutor for multithreading
     '''
     TB_GEN_SEMAPHORE.acquire()
-    success, delete = scripts.tb_gen.generate_testbench(folder)
+    success = scripts.tb_gen.generate_testbench(folder)
     TB_GEN_SEMAPHORE.release()
     if not success:
-        if delete:
-            pass
-            # shutil.rmtree(folder)
+        if not DEBUG:
+            print(f"TB Delete {folder}")
+            shutil.rmtree(folder)
         return False
     return True
 
@@ -91,20 +95,20 @@ def perform_simulation(folder):
     Used by the concurrent.futures.ThreadPoolExecutor for multithreading
     '''
     SIM_SEMAPHORE.acquire()
-    success, delete = compile(folder)
+    success = compile(folder)
     SIM_SEMAPHORE.release()
     if not success:
-        if delete:
-            pass
-            # shutil.rmtree(folder)
+        if not DEBUG:
+            print(f"COM Delete {folder}")
+            shutil.rmtree(folder)
         return False
     SIM_SEMAPHORE.acquire()
-    success, delete = run_simulation(folder)
+    success = run_simulation(folder)
     SIM_SEMAPHORE.release()
     if not success:
-        if delete:
-            pass
-            # shutil.rmtree(folder)
+        if not DEBUG:
+            print(f"SIM Delete {folder}")
+            shutil.rmtree(folder)
         return False
     return True
 
@@ -229,6 +233,7 @@ def main():
     parser.add_argument("--max_ports", help="Only use modules with less than or equal to this number of ports", default=MAX_PORTS)
     parser.add_argument("--max_sim_time", help="Maximum simulation time for testbenches in ns", default=100)
     parser.add_argument("count", help="Gives details on the total amount of data available in the dataset", nargs="?", default=False)
+    parser.add_argument("-D", "--debug", help="Enable debug mode", action="store_true")
 
     args = parser.parse_args()
     
@@ -248,7 +253,14 @@ def main():
     print(f"Start at: {start_at}")
     print(f"Number of processes: {MAX_PROCESSES}")
     print(f"Max ports: {MAX_PORTS}")
-    
+
+    if args.debug:
+        global DEBUG
+        DEBUG = True
+        scripts.tb_gen.DEBUG = True
+        scripts.simulate.DEBUG = True
+        scripts.meta_data.DEBUG = True
+
 
     if start_at == "create":
         print("Creating dataset")

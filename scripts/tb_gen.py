@@ -3,6 +3,8 @@ from scripts import meta_data
 import subprocess
 from shutil import which
 
+DEBUG = False
+
 MAX_SIM_TIME = 400 # maximum simulation time in ns
 
 def init(max_sim_time):
@@ -22,27 +24,30 @@ def generate_testbench(folder):
     meta = meta_data.MetaData()
     meta.load(folder)
     if meta.meta is None:
-        return False, False # return False if meta data could not be loaded, with the second value indicating that the folder should be deleted
+        return False
     name = meta.meta["module_name"]
-    in_file = f"{folder}/module.v"
-    out_file = f"{folder}/tb.v"
+    in_file = os.path.join(folder, "module.v")
+    out_file = os.path.join(folder, "tb.v")
     subprocess_args = ["gentbvlog", "-in", in_file, "-top", name, "-out", out_file, "-max_sim_time", f"{MAX_SIM_TIME}"]
     for clk in meta.meta["clocks"]:
         subprocess_args.extend(["-clk", clk])
     for rst in meta.meta["resets"]:
         subprocess_args.extend(["-rst", rst])
     try:
-        # out_file = open(f"{folder}/gentbvlog_out.txt", "w")
-        # err_file = open(f"{folder}/gentbvlog_err.txt", "w")
-        # cmd_file = open(f"{folder}/gentbvlog_cmd.txt", "w")
-        proc = subprocess.run(subprocess_args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        # cmd_file.write("cmd: {}".format(proc.args))
+        if DEBUG:
+            with open(os.path.join(folder, "gentbvlog_stderr"), "w") as err:
+                with open(os.path.join(folder, "gentbvlog_stdout"), "w") as out:
+                    subprocess.run(subprocess_args, stdout=out, stderr=err)
+        else:
+            subprocess.run(subprocess_args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception as e:
-        print(subprocess_args)
-        print(f"Error: {e}")
-        return False, False
+        if DEBUG:
+            error_file = open(f"{folder}/gentbvlog_err.txt", "w")
+            error_file.write(str(e))
+            error_file.close()
+        return False
     # check if file was actually created
     if os.path.exists(f"{folder}/tb.v"):
-        return True, False
-    return False, True
+        return True
+    return False
     

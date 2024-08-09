@@ -7,6 +7,8 @@ import copy
 This script is used to generate a meta.json file that contains the metadata of the verilog modules, the testbenches, and the waveforms, etc.
 '''
 
+DEBUG = False
+
 # Shows the outline of the meta data contents
 EMPTY_META = {
     "module_name": "",
@@ -55,9 +57,10 @@ class MetaData:
                     data = json.load(f)
                     self.meta = copy.deepcopy(data)
                 except Exception as e:
-                    print(f"Error: {e}")
-                    print(f"Error loading meta.json in {dir}")
-                    print(f"File contents: {f.read()}")
+                    if DEBUG:
+                        error_file = open(f"{dir}/meta_load_err.txt", "w")
+                        error_file.write(str(e))
+                        error_file.close()
                     return None
             return self.meta
         else:
@@ -92,8 +95,6 @@ class MetaData:
         try:
              modules = vlog_ex.extract_objects_from_source(code)
         except Exception as e:
-            print(f"Error: {e}")
-            print(code)
             raise e
         if modules is None or len(modules) == 0:
             return None
