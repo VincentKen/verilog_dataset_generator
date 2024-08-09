@@ -12,7 +12,8 @@ from scripts.simulate import compile, run_simulation
 import scripts.counter
 
 # FOLDER = os.path.dirname(os.path.realpath(__file__)) + "/data"
-FOLDER = "/media/vincent/Z/dataset"
+# FOLDER = "/media/vincent/Z/dataset"
+FOLDER = os.path.dirname(os.path.realpath(__file__)) + "/test_dataset"
 MAX_PROCESSES = os.cpu_count() - 2 if os.cpu_count() > 2 else 1
 MAX_PORTS = 6
 
@@ -154,8 +155,8 @@ def generate_testbenches():
     futures = []
     i = 0
     for folder in os.listdir(FOLDER):
-        # only add directories which dont have a tb.v file
-        if os.path.exists(f"{FOLDER}/{folder}/tb.v"):
+        # only add directories which dont have a tb.v file and don't have an error file
+        if os.path.exists(f"{FOLDER}/{folder}/tb.v") or os.path.exists(f"{FOLDER}/{folder}/gentbvlog_err.txt") or os.path.exists(f"{FOLDER}/{folder}/meta_load_err.txt"):
             continue
 
         futures.append(executor.submit(generate_testbench, f"{FOLDER}/{folder}"))
@@ -186,7 +187,7 @@ def perform_simulations():
     for folder in os.listdir(FOLDER):
         total += 1
     print(f"Performing simulations on {total} modules using {MAX_PROCESSES} processes")
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=2*MAX_PROCESSES, initargs=(tb_gen_semaphore,))
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=2*MAX_PROCESSES)
     futures = []
     i = 0
     for folder in os.listdir(FOLDER):
@@ -217,13 +218,13 @@ def main():
     print("Parsing arguments")
     parser = argparse.ArgumentParser(description="Gathers data to form the dataset")
     parser.add_argument("--folder", help="Folder to store the dataset in", default=FOLDER)
-    parser.add_argument("--start_at", help="""
+    parser.add_argument("--start-at", help="""
                         Starting point for the data gathering
-                        0 = Gather verilog data. Gathers verilog from sources and stores their meta data. (deletes the old one if present)
-                        1 = Generate the testbenches. Generates testbenches for the verilog files in the dataset.
-                        2 = Run the testbenches. Runs the testbenches to get the output waveforms.
-                        3 = Generate waveforms.
-                        """, default="1")
+                        create = Creates a new dataset from scratch, gathers verilog from sources and stores them alongside some basic information. (deletes the old one if present)
+                        tbgen = Generate the testbenches. Generates testbenches for the verilog files in the dataset. If interrupted, will try to start where previously left off
+                        sim = Run the testbenches. Runs the testbenches to get the output waveforms. If interrupted, will try to start where previously left off
+                        wfgen = Generate waveforms. If interrupted, will try to start where previously left off
+                        """, default="tbgen")
     parser.add_argument("--num_processes", help="Number of processes to use for data gathering", default=MAX_PROCESSES)
     parser.add_argument("--max_ports", help="Only use modules with less than or equal to this number of ports", default=MAX_PORTS)
     parser.add_argument("--max_sim_time", help="Maximum simulation time for testbenches in ns", default=100)
@@ -232,7 +233,7 @@ def main():
     args = parser.parse_args()
     
     FOLDER = args.folder
-    start_at = int(args.start_at)
+    start_at = args.start_at
     print(f"Folder: {FOLDER}")
     MAX_PROCESSES = int(args.num_processes)
     MAX_PORTS = int(args.max_ports)
@@ -249,20 +250,20 @@ def main():
     print(f"Max ports: {MAX_PORTS}")
     
 
-    if start_at == 0:
+    if start_at == "create":
         print("Creating dataset")
         gather_verilog_data()
-        start_at = 1
-    if start_at == 1:
+        start_at = "tbgen"
+    if start_at == "tbgen":
         print("Generating testbenches")
         scripts.tb_gen.init(max_sim_time)
         generate_testbenches()
-        start_at = 2
-    if start_at == 2:
+        start_at = "sim"
+    if start_at == "sim":
         print("Performing simulations")
         perform_simulations()
-        start_at = 3
-    if start_at == 3:
+        start_at = "wfgen"
+    if start_at == "wfgen":
         pass
     
 
