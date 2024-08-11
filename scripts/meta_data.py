@@ -62,6 +62,22 @@ class MetaData:
                         error_file.write(str(e))
                         error_file.close()
                     return None
+            # temporary fix for old meta.json files
+            if len(self.meta["ports"]) > 0 and type(self.meta["ports"][0]) == str:
+                vlog_ex = vlog.VerilogExtractor()
+                try:
+                    modules = vlog_ex.extract_objects_from_source(self.meta["code"])
+                except Exception as e:
+                    # failed to redo for some reason? return the old meta for now
+                    return self.meta
+                m = modules[0]
+                if hasattr(m, 'ports'):
+                    self.meta["ports"] = []
+                    for signal in m.ports:
+                        self.meta["ports"].append({"name": signal.name, "mode": signal.mode, "type": signal.data_type})
+                self.store(self.dir)
+                
+
             return self.meta
         else:
             return None
@@ -110,7 +126,7 @@ class MetaData:
                     self.meta["clocks"].append(signal.name)
                 elif signal.name.lower() in _RST_NAMES:
                     self.meta["resets"].append(signal.name)
-                self.meta["ports"].append(signal.name)
+                self.meta["ports"].append({"name": signal.name, "mode": signal.mode, "type": signal.data_type})
         else:
             print(f"Error: No ports found in {m.name}")
         return self.meta
