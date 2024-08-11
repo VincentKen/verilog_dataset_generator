@@ -23,9 +23,9 @@ def compile(folder):
         if DEBUG:
             with open(os.path.join(folder, "iverilog_stderr"), "w") as err:
                 with open(os.path.join(folder, "iverilog_stdout"), "w") as out:
-                    subprocess.run(subprocess_args, check=True, stdout=out, stderr=err)
+                    subprocess.run(subprocess_args, check=True, stdout=out, stderr=err, timeout=10)
         else:
-            subprocess.run(subprocess_args, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(subprocess_args, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
     except Exception as e:
         if DEBUG:
             with open(os.path.join(folder, "iverilog_err.txt"), "w") as f:
@@ -37,17 +37,21 @@ def run_simulation(folder):
     '''
     Run the compiled simulation
     '''
+    cwd = os.getcwd()
+    os.chdir(folder)
     subprocess_args = ["vvp", "iverilog_out"]
     try:
         if DEBUG:
             with open(os.path.join(folder, "vvp_stderr"), "w") as err:
                 with open(os.path.join(folder, "vvp_stdout"), "w") as out:
-                    subprocess.run(subprocess_args, check=True, stdout=out, stderr=err)
+                    subprocess.run(subprocess_args, check=True, stdout=out, stderr=err, timeout=10)
         else:
-            subprocess.run(subprocess_args, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(subprocess_args, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
     except Exception as e:
         if DEBUG:
             with open(os.path.join(folder, "vvp_err.txt"), "w") as f:
                 f.write(str(e))
+        os.chdir(cwd)
         return False
+    os.chdir(cwd)
     return True
