@@ -1,7 +1,7 @@
 import os
 from datasets import load_dataset
 import concurrent.futures
-import multiprocessing
+import scripts.generate_wavedroms
 import scripts.meta_data as meta_data
 import shutil
 import re
@@ -11,6 +11,7 @@ import scripts.meta_data
 import scripts.simulate
 import scripts.tb_gen
 from scripts.simulate import compile, run_simulation
+import scripts.generate_wavedroms
 import scripts.counter
 
 # FOLDER = os.path.dirname(os.path.realpath(__file__)) + "/data"
@@ -64,7 +65,7 @@ def parse_verilog_module(id, data):
     '''
     meta = meta_data.MetaData()
     if meta.analyze_code(data) is not None:
-        if len(meta.meta["ports"]) - len(meta.meta["clocks"]) - len(meta.meta["resets"]) <= MAX_PORTS:
+        if len(meta.meta["ports"]) <= MAX_PORTS:
             os.makedirs(f"{FOLDER}/ds_{id}")
             meta.store(f"{FOLDER}/ds_{id}")
             # write the code to a file
@@ -83,7 +84,6 @@ def generate_testbench(folder):
     TB_GEN_SEMAPHORE.release()
     if not success:
         if not DEBUG:
-            print(f"TB Delete {folder}")
             shutil.rmtree(folder)
         return False
     return True
@@ -95,19 +95,37 @@ def perform_simulation(folder):
     Used by the concurrent.futures.ThreadPoolExecutor for multithreading
     '''
     SIM_SEMAPHORE.acquire()
-    success = compile(folder)
+    try:
+        success = compile(folder)
+    except Exception as e:
+        SIM_SEMAPHORE.release()
+        return False
     SIM_SEMAPHORE.release()
     if not success:
         if not DEBUG:
-            print(f"COM Delete {folder}")
             shutil.rmtree(folder)
         return False
     SIM_SEMAPHORE.acquire()
-    success = run_simulation(folder)
+    try:
+        success = run_simulation(folder)
+    except Exception as e:
+        SIM_SEMAPHORE.release()
+        return False
     SIM_SEMAPHORE.release()
     if not success:
         if not DEBUG:
-            print(f"SIM Delete {folder}")
+            shutil.rmtree(folder)
+        return False
+    return True
+
+
+def generate_waveform(folder):
+    '''
+    Generate the waveform from the simulation
+    '''
+    success = scripts.generate_wavedroms.generate_wavedrom(folder)
+    if not success:
+        if not DEBUG:
             shutil.rmtree(folder)
         return False
     return True
@@ -187,18 +205,47 @@ def perform_simulations():
     '''
     Perform simulations on the testbenches
     '''
+    total = len([folder for folder in os.listdir(FOLDER)])
+    print(f"Performing simulations on {total} modules using {MAX_PROCESSES} threads")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_PROCESSES) as executor:
+        futures = []
+        for i, folder in enumerate(os.listdir(FOLDER), 1):
+            futures.append(executor.submit(perform_simulation, f"{FOLDER}/{folder}"))
+            i += 1
+            if i % 10 == 0:
+                print(f"Submitted {i} simulations to the pool", end="\r")
+        print("")
+        success = 0
+        print("Waiting for simulations to complete")
+        for i, future in enumerate(concurrent.futures.as_completed(futures), 1):
+            try:
+                if future.result():
+                    success += 1
+            except Exception as e:
+                pass
+            if i % 10 == 0:
+                print(f"Completed {i}/{total} simulations, success rate: {success}/{i}", end="\r")
+    print(f"Completed {i}/{total} simulations, success rate: {success}/{i}")
+    print("Simulations completed")
+
+
+def generate_waveforms():
+    '''
+    Generate waveforms for the simulations
+    '''
     total = 0
     for folder in os.listdir(FOLDER):
         total += 1
-    print(f"Performing simulations on {total} modules using {MAX_PROCESSES} processes")
+    print(f"Generating waveforms for {total} modules using {MAX_PROCESSES} threads")
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=2*MAX_PROCESSES)
     futures = []
     i = 0
     for folder in os.listdir(FOLDER):
-        futures.append(executor.submit(perform_simulation, f"{FOLDER}/{folder}"))
+        futures.append(executor.submit(scripts.generate_wavedroms.generate_wavedrom, os.path.join(FOLDER, folder)))
         i += 1
         if i % 1000 == 0:
-            print(f"Submitted {i} simulations to the pool", end="\r")
+            print(f"Submitted {i} waveform generations to the pool", end="\r")
     print("")
     success = 0
     i = 0
@@ -206,10 +253,10 @@ def perform_simulations():
         if future.result():
             success += 1
         i += 1
-        if i % 1000 == 0:
-            print(f"Completed {i}/{total} simulations, success rate: {success}/{i}", end="\r")
-    print(f"Completed {i}/{total} simulations, success rate: {success}/{i}")
-    print("Simulations completed")
+        if i % 10 == 0:
+            print(f"Completed {i}/{total} waveform generations, success rate: {success}/{i}", end="\r")
+    print(f"Completed {i}/{total} waveform generations, success rate: {success}/{i}")
+    print("Waveforms generated")
 
 
 def main():
@@ -260,7 +307,7 @@ def main():
         scripts.tb_gen.DEBUG = True
         scripts.simulate.DEBUG = True
         scripts.meta_data.DEBUG = True
-
+        scripts.generate_wavedroms.DEBUG = True
 
     if start_at == "create":
         print("Creating dataset")
@@ -276,7 +323,7 @@ def main():
         perform_simulations()
         start_at = "wfgen"
     if start_at == "wfgen":
-        pass
+        generate_waveforms()
     
 
 if __name__ == "__main__":
