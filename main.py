@@ -7,6 +7,7 @@ import shutil
 import re
 import threading
 import argparse
+import glob
 import scripts.meta_data
 import scripts.simulate
 import scripts.tb_gen
@@ -14,9 +15,7 @@ from scripts.simulate import compile, run_simulation
 import scripts.generate_wavedroms
 import scripts.counter
 
-# FOLDER = os.path.dirname(os.path.realpath(__file__)) + "/data"
-# FOLDER = "/media/vincent/Z/dataset"
-FOLDER = os.path.dirname(os.path.realpath(__file__)) + "/test_dataset"
+FOLDER = os.path.dirname(os.path.realpath(__file__)) + "/data"
 MAX_PROCESSES = os.cpu_count() - 2 if os.cpu_count() > 2 else 1
 MAX_PORTS = 6
 
@@ -242,6 +241,8 @@ def generate_waveforms():
     futures = []
     i = 0
     for folder in os.listdir(FOLDER):
+        if os.path.exists(f"{FOLDER}/{folder}/img") and len(glob.glob(f"{FOLDER}/{folder}/img/*.png")) > 0: # skip if waveforms already exist
+            continue
         futures.append(executor.submit(scripts.generate_wavedroms.generate_wavedrom, os.path.join(FOLDER, folder)))
         i += 1
         if i % 1000 == 0:
