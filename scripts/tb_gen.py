@@ -37,9 +37,9 @@ def generate_testbench(folder):
         if DEBUG:
             with open(os.path.join(folder, "gentbvlog_stderr"), "w") as err:
                 with open(os.path.join(folder, "gentbvlog_stdout"), "w") as out:
-                    subprocess.run(subprocess_args, stdout=out, stderr=err)
+                    subprocess.run(subprocess_args, stdout=out, stderr=err, timeout=500)
         else:
-            subprocess.run(subprocess_args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(subprocess_args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=500)
     except Exception as e:
         if DEBUG:
             error_file = open(f"{folder}/gentbvlog_err.txt", "w")
